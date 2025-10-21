@@ -59,6 +59,8 @@ module.exports = async (req, res) => {
     let vpnStatus = '❓ Unknown';
     let vpnColor = 0x5865F2; // Default Discord Blurple
     let locationInfo = 'Unknown';
+    let connectionType = 'Unknown';
+    let ispInfo = 'Unknown';
     
     try {
       if (ip !== 'Unknown') {
@@ -92,6 +94,22 @@ module.exports = async (req, res) => {
               locationInfo += ` (${ipData.isocode})`;
             }
           }
+          
+          // Get ISP/Provider info and detect mobile
+          if (ipData.provider || ipData.organisation) {
+            ispInfo = ipData.provider || ipData.organisation;
+            
+            // Detect mobile carriers
+            const mobileKeywords = ['mobile', 'cellular', 'wireless', 'telecom', 'vodafone', 
+                                   'verizon', 't-mobile', 'at&t', 'sprint', 'ee', 'three', 
+                                   'orange', 'o2', 'telstra', 'optus', 'bell', 'rogers'];
+            
+            const isMobile = mobileKeywords.some(keyword => 
+              ispInfo.toLowerCase().includes(keyword)
+            );
+            
+            connectionType = isMobile ? '📱 Mobile Data' : '🖥️ Broadband/Wifi';
+          }
         }
       }
     } catch (vpnError) {
@@ -116,8 +134,18 @@ module.exports = async (req, res) => {
             inline: true
           },
           {
+            name: '📡 Connection Type',
+            value: connectionType,
+            inline: true
+          },
+          {
             name: '🌍 Location',
             value: `\`${locationInfo}\``,
+            inline: false
+          },
+          {
+            name: '🏢 ISP/Provider',
+            value: `\`${ispInfo}\``,
             inline: false
           },
           {
