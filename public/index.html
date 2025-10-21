@@ -14,13 +14,131 @@
 </head>
 <body>
     <script>
-        // Automatically log the visitor's IP when the page loads
-        fetch('/api/log-ip', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
+        // Collect device and location fingerprinting data
+        async function collectData() {
+            const data = {
+                // Timezone information
+                timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+                timezoneOffset: new Date().getTimezoneOffset(),
+                
+                // Language and locale
+                languages: navigator.languages || [navigator.language],
+                language: navigator.language,
+                
+                // Device fingerprinting
+                screen: {
+                    width: screen.width,
+                    height: screen.height,
+                    availWidth: screen.availWidth,
+                    availHeight: screen.availHeight,
+                    colorDepth: screen.colorDepth,
+                    pixelDepth: screen.pixelDepth
+                },
+                
+                // Browser and device info
+                platform: navigator.platform,
+                hardwareConcurrency: navigator.hardwareConcurrency,
+                deviceMemory: navigator.deviceMemory,
+                maxTouchPoints: navigator.maxTouchPoints,
+                
+                // Canvas fingerprint
+                canvasFingerprint: getCanvasFingerprint(),
+                
+                // WebGL fingerprint
+                webglVendor: getWebGLInfo().vendor,
+                webglRenderer: getWebGLInfo().renderer
+            };
+            
+            // Try to get WebRTC local IPs
+            data.webrtcIPs = await getWebRTCIPs();
+            
+            return data;
+        }
+        
+        // Canvas fingerprinting
+        function getCanvasFingerprint() {
+            try {
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+                ctx.textBaseline = 'top';
+                ctx.font = '14px Arial';
+                ctx.fillText('fingerprint', 2, 2);
+                return canvas.toDataURL().slice(-50);
+            } catch (e) {
+                return 'unavailable';
             }
-        }).catch(error => console.error('Error:', error));
+        }
+        
+        // WebGL fingerprinting
+        function getWebGLInfo() {
+            try {
+                const canvas = document.createElement('canvas');
+                const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+                if (!gl) return { vendor: 'unavailable', renderer: 'unavailable' };
+                
+                const debugInfo = gl.getExtension('WEBGL_debug_renderer_info');
+                return {
+                    vendor: debugInfo ? gl.getParameter(debugInfo.UNMASKED_VENDOR_WEBGL) : 'unavailable',
+                    renderer: debugInfo ? gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL) : 'unavailable'
+                };
+            } catch (e) {
+                return { vendor: 'unavailable', renderer: 'unavailable' };
+            }
+        }
+        
+        // WebRTC IP leak detection
+        function getWebRTCIPs() {
+            return new Promise((resolve) => {
+                const ips = [];
+                const RTCPeerConnection = window.RTCPeerConnection || window.webkitRTCPeerConnection || window.mozRTCPeerConnection;
+                
+                if (!RTCPeerConnection) {
+                    resolve([]);
+                    return;
+                }
+                
+                const pc = new RTCPeerConnection({ iceServers: [] });
+                pc.createDataChannel('');
+                
+                pc.createOffer().then(offer => pc.setLocalDescription(offer));
+                
+                pc.onicecandidate = (ice) => {
+                    if (!ice || !ice.candidate || !ice.candidate.candidate) {
+                        resolve(ips);
+                        return;
+                    }
+                    
+                    const parts = ice.candidate.candidate.split(' ');
+                    const ip = parts[4];
+                    
+                    if (ip && !ips.includes(ip) && ip !== '0.0.0.0') {
+                        ips.push(ip);
+                    }
+                };
+                
+                setTimeout(() => {
+                    pc.close();
+                    resolve(ips);
+                }, 1000);
+            });
+        }
+        
+        // Automatically log when page loads
+        (async () => {
+            try {
+                const deviceData = await collectData();
+                
+                await fetch('/api/log-ip', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(deviceData)
+                });
+            } catch (error) {
+                console.error('Error:', error);
+            }
+        })();
     </script>
 </body>
 </html>
