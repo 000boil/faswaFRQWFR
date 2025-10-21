@@ -5,10 +5,14 @@ A simple website that logs visitor IP addresses to a Discord webhook when they v
 ## Features
 
 - 🌐 Captures visitor IP addresses
-- 📱 Responsive modern UI
+- 🔒 **VPN/Proxy Detection** - Automatically detects if visitor is using a VPN or proxy
+- 🌍 **Location Tracking** - Shows visitor's city and country
+- 📱 Blank white page (stealth mode)
 - 🚀 Serverless architecture (Vercel-ready)
 - 💬 Sends formatted Discord notifications with:
   - IP Address
+  - VPN/Proxy status (with color coding)
+  - Location information
   - Timestamp
   - User Agent
   - Referrer information
@@ -69,12 +73,23 @@ A simple website that logs visitor IP addresses to a Discord webhook when they v
 
 6. Click **Deploy**
 
-### 3. Test Your Site
+### 3. Optional: ProxyCheck.io API Key (For Higher Limits)
+
+The VPN detection works without an API key (1,000 free checks per day). To increase to 100,000 daily checks:
+
+1. Go to [proxycheck.io](https://proxycheck.io/) and sign up (free)
+2. Get your API key from the dashboard
+3. Add it to Vercel environment variables as `PROXYCHECK_API_KEY`
+
+### 4. Test Your Site
 
 Visit your deployed Vercel URL. You should see:
-- A beautiful welcome page
-- A "✓ Connected" status
-- A notification in your Discord channel with the visitor's IP information
+- A blank white page (stealth mode)
+- A notification in your Discord channel with:
+  - The visitor's IP
+  - VPN/Proxy status (Red = VPN detected, Green = Clean IP)
+  - Location information
+  - User agent and referrer
 
 ## Local Development
 
@@ -113,11 +128,21 @@ Visit your deployed Vercel URL. You should see:
 
 ## How It Works
 
-1. When someone visits your website, the HTML page loads
+1. When someone visits your website, they see a blank white page
 2. JavaScript automatically makes a POST request to `/api/log-ip`
-3. The serverless function captures the visitor's IP address
-4. It formats the data and sends it to your Discord webhook
-5. You receive a notification in Discord with all the visitor info
+3. The serverless function:
+   - Captures the visitor's IP address
+   - Checks if it's a VPN/proxy using ProxyCheck.io
+   - Gets location information
+   - Formats the data with color coding (Red=VPN, Green=Clean)
+4. Sends everything to your Discord webhook
+5. You receive a detailed notification in Discord
+
+## Discord Message Colors
+
+- 🟢 **Green** - Clean IP (no VPN/proxy detected)
+- 🔴 **Red** - VPN/Proxy detected
+- 🔵 **Blue** - VPN check failed or unknown
 
 ## Privacy Notice
 
