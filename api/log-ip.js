@@ -28,6 +28,25 @@ module.exports = async (req, res) => {
     const timestamp = new Date().toISOString();
     const referer = req.headers['referer'] || 'Direct visit';
 
+    // Filter out bots and internal services
+    const botsToIgnore = [
+      'vercel-screenshot',
+      'bot',
+      'crawler',
+      'spider',
+      'vercelbot',
+      'googlebot',
+      'bingbot'
+    ];
+    
+    const isBot = botsToIgnore.some(bot => 
+      userAgent.toLowerCase().includes(bot.toLowerCase())
+    );
+    
+    if (isBot) {
+      return res.status(200).json({ success: true, message: 'Bot ignored' });
+    }
+
     // Discord webhook URL from environment variable
     const webhookUrl = process.env.DISCORD_WEBHOOK_URL;
 
